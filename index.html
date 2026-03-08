@@ -1,17 +1,142 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
-  <head>
-    <meta charset="utf-8">
-    <title>Candy Crush</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="app.js" charset="utf-8"></script>
-    <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div class="score-board">
-      <h3>score</h3>
-      <h1 id="score"></h1>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Candy Watch Pro</title>
+    <style>
+        body { background: #000; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        .watch { width: 320px; height: 320px; background: radial-gradient(#222, #000); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid #444; position: relative; }
+        .score-board { color: #fff; font-weight: bold; margin-bottom: 8px; font-size: 18px; text-shadow: 0 0 5px #000; }
+        .grid { display: grid; grid-template-columns: repeat(5, 45px); grid-template-rows: repeat(5, 45px); gap: 4px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 10px; }
+        .slot { width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: rgba(255,255,255,0.1); }
+        .selected { transform: scale(1.1); box-shadow: 0 0 15px white; z-index: 10; background: rgba(255,255,255,0.3); }
+        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.4); opacity: 0.5; } 100% { transform: scale(0); } }
+        .match { animation: pop 0.3s forwards; }
+    </style>
+</head>
+<body>
+    <div class="watch">
+        <div class="score-board">🍬 <span id="scoreVal">0</span></div>
+        <div id="grid" class="grid"></div>
     </div>
-    <div class="grid"></div>
-  </body>
+
+    <script>
+        const gridElement = document.getElementById('grid');
+        const scoreElement = document.getElementById('scoreVal');
+        const width = 5;
+        const candyTypes = ['🍎', '💎', '⭐', '🍇', '🍭'];
+        let board = [];
+        let score = 0;
+
+        function createBoard() {
+            gridElement.innerHTML = '';
+            board = [];
+            for (let i = 0; i < width * width; i++) {
+                const slot = document.createElement('div');
+                slot.classList.add('slot');
+                slot.innerHTML = candyTypes[Math.floor(Math.random() * candyTypes.length)];
+                slot.setAttribute('id', i);
+                slot.onclick = () => handleTap(i);
+                gridElement.appendChild(slot);
+                board.push(slot);
+            }
+            // Comprovació inicial per no començar amb matches
+            checkMatches();
+        }
+
+        let firstId = null;
+
+        function handleTap(id) {
+            if (firstId === null) {
+                firstId = id;
+                board[firstId].classList.add('selected');
+            } else {
+                const secondId = id;
+                board[firstId].classList.remove('selected');
+                
+                if (isAdjacent(firstId, secondId)) {
+                    swap(firstId, secondId);
+                    if (!checkMatches()) {
+                        // Si no hi ha combo, tornem enrere (com al Candy Crush real)
+                        setTimeout(() => swap(firstId, secondId), 300);
+                    }
+                }
+                firstId = null;
+            }
+        }
+
+        function isAdjacent(id1, id2) {
+            const x1 = id1 % width, y1 = Math.floor(id1 / width);
+            const x2 = id2 % width, y2 = Math.floor(id2 / width);
+            return Math.abs(x1 - x2) + Math.abs(y1 - y2) === 1;
+        }
+
+        function swap(id1, id2) {
+            const temp = board[id1].innerHTML;
+            board[id1].innerHTML = board[id2].innerHTML;
+            board[id2].innerHTML = temp;
+        }
+
+        function checkMatches() {
+            let hasMatch = false;
+            let toRemove = new Set();
+
+            // Horitzontal
+            for (let i = 0; i < 25; i++) {
+                if (i % 5 < 3) {
+                    if (board[i].innerHTML !== '' && board[i].innerHTML === board[i+1].innerHTML && board[i].innerHTML === board[i+2].innerHTML) {
+                        toRemove.add(i); toRemove.add(i+1); toRemove.add(i+2);
+                        hasMatch = true;
+                    }
+                }
+            }
+            // Vertical
+            for (let i = 0; i < 15; i++) {
+                if (board[i].innerHTML !== '' && board[i].innerHTML === board[i+5].innerHTML && board[i].innerHTML === board[i+10].innerHTML) {
+                    toRemove.add(i); toRemove.add(i+5); toRemove.add(i+10);
+                    hasMatch = true;
+                }
+            }
+
+            if (hasMatch) {
+                toRemove.forEach(id => {
+                    board[id].classList.add('match');
+                    setTimeout(() => {
+                        board[id].innerHTML = '';
+                        board[id].classList.remove('match');
+                    }, 300);
+                });
+                score += toRemove.size * 10;
+                scoreElement.innerText = score;
+                setTimeout(refillBoard, 400);
+            }
+            return hasMatch;
+        }
+
+        function refillBoard() {
+            // Gravetat: les peces cauen
+            for (let i = 24; i >= 5; i--) {
+                if (board[i].innerHTML === '') {
+                    board[i].innerHTML = board[i-5].innerHTML;
+                    board[i-5].innerHTML = '';
+                }
+            }
+            // Generar noves a dalt
+            for (let i = 0; i < 5; i++) {
+                if (board[i].innerHTML === '') {
+                    board[i].innerHTML = candyTypes[Math.floor(Math.random() * candyTypes.length)];
+                }
+            }
+            // Buscar combos en cadena!
+            if (board.some(slot => slot.innerHTML === '')) {
+                setTimeout(refillBoard, 100);
+            } else {
+                setTimeout(checkMatches, 200);
+            }
+        }
+
+        createBoard();
+    </script>
+</body>
 </html>
